@@ -11,6 +11,7 @@ namespace Sub_Pal_API.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
+        public DbSet<Category> Categories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -41,6 +42,22 @@ namespace Sub_Pal_API.Data
                       .WithMany(u => u.Subscriptions)
                       .HasForeignKey(s => s.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure Category entity
+            modelBuilder.Entity<Category>(entity =>
+            {
+                entity.HasKey(c => c.Id);
+                entity.Property(c => c.Name).IsRequired().HasMaxLength(50);
+
+                // Configure one-to-many relationship
+                entity.HasOne(c => c.User)
+                      .WithMany(u => u.Categories)
+                      .HasForeignKey(c => c.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Ensure category names are unique per user
+                entity.HasIndex(c => new { c.UserId, c.Name }).IsUnique();
             });
         }
     }

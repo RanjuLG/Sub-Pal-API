@@ -8,7 +8,8 @@ namespace Sub_Pal_API.Models
         public string PasswordHash { get; set; } = string.Empty;
         public string PasswordSalt { get; set; } = string.Empty;
 
-        // Navigation property
+        // Navigation properties
         public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
+        public ICollection<Category> Categories { get; set; } = new List<Category>();
     }
 }
