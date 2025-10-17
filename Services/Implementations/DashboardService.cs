@@ -7,14 +7,28 @@ namespace Sub_Pal_API.Services.Implementations
     public class DashboardService : IDashboardService
     {
         private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly ICacheService _cacheService;
 
-        public DashboardService(ISubscriptionRepository subscriptionRepository)
+        public DashboardService(ISubscriptionRepository subscriptionRepository, ICacheService cacheService)
         {
             _subscriptionRepository = subscriptionRepository;
+            _cacheService = cacheService;
         }
+
+        private string GetDashboardCacheKey(int userId) => $"user:{userId}:dashboard";
 
         public async Task<DashboardSummaryDto> GetDashboardSummaryAsync(int userId)
         {
+            var cacheKey = GetDashboardCacheKey(userId);
+            
+            // Try to get from cache
+            var cachedDashboard = await _cacheService.GetAsync<DashboardSummaryDto>(cacheKey);
+            if (cachedDashboard != null)
+            {
+                return cachedDashboard;
+            }
+
+            // Get from database and calculate
             var subscriptions = await _subscriptionRepository.GetAllByUserIdAsync(userId);
 
             // Calculate total monthly cost
@@ -62,13 +76,18 @@ namespace Sub_Pal_API.Services.Implementations
                 .OrderBy(s => s.NextRenewalDate)
                 .ToList();
 
-            return new DashboardSummaryDto
+            var dashboard = new DashboardSummaryDto
             {
                 TotalMonthlyCost = totalMonthlyCost,
                 TotalAnnualCost = totalAnnualCost,
                 SpendingByCategory = spendingByCategory,
                 UpcomingRenewals = upcomingRenewals
             };
+
+            // Cache with shorter TTL since dashboard data changes frequently
+            await _cacheService.SetAsync(cacheKey, dashboard, TimeSpan.FromMinutes(5));
+            
+            return dashboard;
         }
     }
 }

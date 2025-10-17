@@ -9,16 +9,37 @@ namespace Sub_Pal_API.Services.Implementations
     {
         private readonly ISubscriptionRepository _subscriptionRepository;
         private readonly ICategoryService _categoryService;
+        private readonly ICacheService _cacheService;
 
-        public SubscriptionService(ISubscriptionRepository subscriptionRepository, ICategoryService categoryService)
+        public SubscriptionService(
+            ISubscriptionRepository subscriptionRepository, 
+            ICategoryService categoryService,
+            ICacheService cacheService)
         {
             _subscriptionRepository = subscriptionRepository;
             _categoryService = categoryService;
+            _cacheService = cacheService;
         }
+
+        private string GetSubscriptionsCacheKey(int userId) => $"user:{userId}:subscriptions";
+        private string GetUserCachePattern(int userId) => $"user:{userId}:*";
 
         public async Task<List<Subscription>> GetAllSubscriptionsAsync(int userId)
         {
-            return await _subscriptionRepository.GetAllByUserIdAsync(userId);
+            var cacheKey = GetSubscriptionsCacheKey(userId);
+            
+            // Try to get from cache
+            var cachedSubscriptions = await _cacheService.GetAsync<List<Subscription>>(cacheKey);
+            if (cachedSubscriptions != null)
+            {
+                return cachedSubscriptions;
+            }
+
+            // Get from database and cache
+            var subscriptions = await _subscriptionRepository.GetAllByUserIdAsync(userId);
+            await _cacheService.SetAsync(cacheKey, subscriptions, TimeSpan.FromMinutes(15));
+            
+            return subscriptions;
         }
 
         public async Task<Subscription> CreateSubscriptionAsync(CreateSubscriptionDto dto, int userId)
@@ -39,7 +60,12 @@ namespace Sub_Pal_API.Services.Implementations
                 NotificationMessage = dto.NotificationMessage
             };
 
-            return await _subscriptionRepository.CreateAsync(subscription);
+            var result = await _subscriptionRepository.CreateAsync(subscription);
+            
+            // Invalidate all user-related caches (subscriptions, dashboard)
+            await _cacheService.RemoveByPatternAsync(GetUserCachePattern(userId));
+            
+            return result;
         }
 
         public async Task<bool> UpdateSubscriptionAsync(int id, UpdateSubscriptionDto dto, int userId)
@@ -63,6 +89,10 @@ namespace Sub_Pal_API.Services.Implementations
             subscription.NotificationMessage = dto.NotificationMessage;
 
             await _subscriptionRepository.UpdateAsync(subscription);
+            
+            // Invalidate all user-related caches
+            await _cacheService.RemoveByPatternAsync(GetUserCachePattern(userId));
+            
             return true;
         }
 
@@ -75,6 +105,10 @@ namespace Sub_Pal_API.Services.Implementations
             }
 
             await _subscriptionRepository.DeleteAsync(subscription);
+            
+            // Invalidate all user-related caches
+            await _cacheService.RemoveByPatternAsync(GetUserCachePattern(userId));
+            
             return true;
         }
     }

@@ -7,15 +7,32 @@ namespace Sub_Pal_API.Services.Implementations
     public class CategoryService : ICategoryService
     {
         private readonly ICategoryRepository _categoryRepository;
+        private readonly ICacheService _cacheService;
 
-        public CategoryService(ICategoryRepository categoryRepository)
+        public CategoryService(ICategoryRepository categoryRepository, ICacheService cacheService)
         {
             _categoryRepository = categoryRepository;
+            _cacheService = cacheService;
         }
+
+        private string GetCategoriesCacheKey(int userId) => $"user:{userId}:categories";
 
         public async Task<List<Category>> GetAllCategoriesAsync(int userId)
         {
-            return await _categoryRepository.GetAllByUserIdAsync(userId);
+            var cacheKey = GetCategoriesCacheKey(userId);
+            
+            // Try to get from cache
+            var cachedCategories = await _cacheService.GetAsync<List<Category>>(cacheKey);
+            if (cachedCategories != null)
+            {
+                return cachedCategories;
+            }
+
+            // Get from database and cache
+            var categories = await _categoryRepository.GetAllByUserIdAsync(userId);
+            await _cacheService.SetAsync(cacheKey, categories, TimeSpan.FromMinutes(30));
+            
+            return categories;
         }
 
         public async Task<Category> EnsureCategoryExistsAsync(string categoryName, int userId)
@@ -35,7 +52,12 @@ namespace Sub_Pal_API.Services.Implementations
                 UserId = userId
             };
 
-            return await _categoryRepository.CreateAsync(newCategory);
+            var result = await _categoryRepository.CreateAsync(newCategory);
+            
+            // Invalidate categories cache
+            await _cacheService.RemoveAsync(GetCategoriesCacheKey(userId));
+            
+            return result;
         }
     }
 }

@@ -9,25 +9,57 @@ namespace Sub_Pal_API.Services.Implementations
     {
         private readonly INotificationRepository _notificationRepository;
         private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly ICacheService _cacheService;
 
         public NotificationService(
             INotificationRepository notificationRepository,
-            ISubscriptionRepository subscriptionRepository)
+            ISubscriptionRepository subscriptionRepository,
+            ICacheService cacheService)
         {
             _notificationRepository = notificationRepository;
             _subscriptionRepository = subscriptionRepository;
+            _cacheService = cacheService;
         }
+
+        private string GetNotificationsCacheKey(int userId) => $"user:{userId}:notifications";
+        private string GetUnreadNotificationsCacheKey(int userId) => $"user:{userId}:notifications:unread";
 
         public async Task<List<NotificationDto>> GetUserNotificationsAsync(int userId)
         {
+            var cacheKey = GetNotificationsCacheKey(userId);
+            
+            // Try to get from cache
+            var cachedNotifications = await _cacheService.GetAsync<List<NotificationDto>>(cacheKey);
+            if (cachedNotifications != null)
+            {
+                return cachedNotifications;
+            }
+
+            // Get from database and cache
             var notifications = await _notificationRepository.GetAllByUserIdAsync(userId);
-            return notifications.Select(MapToDto).ToList();
+            var dtos = notifications.Select(MapToDto).ToList();
+            await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(10));
+            
+            return dtos;
         }
 
         public async Task<List<NotificationDto>> GetUnreadNotificationsAsync(int userId)
         {
+            var cacheKey = GetUnreadNotificationsCacheKey(userId);
+            
+            // Try to get from cache
+            var cachedNotifications = await _cacheService.GetAsync<List<NotificationDto>>(cacheKey);
+            if (cachedNotifications != null)
+            {
+                return cachedNotifications;
+            }
+
+            // Get from database and cache
             var notifications = await _notificationRepository.GetUnreadByUserIdAsync(userId);
-            return notifications.Select(MapToDto).ToList();
+            var dtos = notifications.Select(MapToDto).ToList();
+            await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(5));
+            
+            return dtos;
         }
 
         public async Task MarkAsReadAsync(int notificationId, int userId)
@@ -40,11 +72,19 @@ namespace Sub_Pal_API.Services.Implementations
 
             notification.IsRead = true;
             await _notificationRepository.UpdateAsync(notification);
+            
+            // Invalidate notifications cache
+            await _cacheService.RemoveAsync(GetNotificationsCacheKey(userId));
+            await _cacheService.RemoveAsync(GetUnreadNotificationsCacheKey(userId));
         }
 
         public async Task MarkAllAsReadAsync(int userId)
         {
             await _notificationRepository.MarkAllAsReadAsync(userId);
+            
+            // Invalidate notifications cache
+            await _cacheService.RemoveAsync(GetNotificationsCacheKey(userId));
+            await _cacheService.RemoveAsync(GetUnreadNotificationsCacheKey(userId));
         }
 
         public async Task DeleteNotificationAsync(int notificationId, int userId)
@@ -56,6 +96,10 @@ namespace Sub_Pal_API.Services.Implementations
             }
 
             await _notificationRepository.DeleteAsync(notification);
+            
+            // Invalidate notifications cache
+            await _cacheService.RemoveAsync(GetNotificationsCacheKey(userId));
+            await _cacheService.RemoveAsync(GetUnreadNotificationsCacheKey(userId));
         }
 
         public async Task GenerateNotificationsAsync()
