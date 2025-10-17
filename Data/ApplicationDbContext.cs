@@ -12,6 +12,7 @@ namespace Sub_Pal_API.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
         public DbSet<Category> Categories { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -58,6 +59,33 @@ namespace Sub_Pal_API.Data
 
                 // Ensure category names are unique per user
                 entity.HasIndex(c => new { c.UserId, c.Name }).IsUnique();
+            });
+
+            // Configure Notification entity
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.HasKey(n => n.Id);
+                entity.Property(n => n.SubscriptionName).IsRequired().HasMaxLength(255);
+                entity.Property(n => n.Message).IsRequired().HasMaxLength(500);
+                entity.Property(n => n.Description).HasMaxLength(1000);
+                entity.Property(n => n.NotificationType)
+                      .HasConversion<string>();
+
+                // Configure relationships
+                entity.HasOne(n => n.User)
+                      .WithMany()
+                      .HasForeignKey(n => n.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(n => n.Subscription)
+                      .WithMany()
+                      .HasForeignKey(n => n.SubscriptionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Create indexes for better query performance
+                entity.HasIndex(n => n.UserId);
+                entity.HasIndex(n => n.IsRead);
+                entity.HasIndex(n => n.DueDate);
             });
         }
     }

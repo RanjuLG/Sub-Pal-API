@@ -33,7 +33,10 @@ namespace Sub_Pal_API.Services.Implementations
                 BillingCycle = dto.BillingCycle,
                 NextRenewalDate = dto.NextRenewalDate,
                 Category = dto.Category,
-                UserId = userId
+                UserId = userId,
+                NotificationEnabled = dto.NotificationEnabled,
+                NotificationDaysBefore = dto.NotificationDaysBefore,
+                NotificationMessage = dto.NotificationMessage
             };
 
             return await _subscriptionRepository.CreateAsync(subscription);
@@ -55,6 +58,9 @@ namespace Sub_Pal_API.Services.Implementations
             subscription.BillingCycle = dto.BillingCycle;
             subscription.NextRenewalDate = dto.NextRenewalDate;
             subscription.Category = dto.Category;
+            subscription.NotificationEnabled = dto.NotificationEnabled;
+            subscription.NotificationDaysBefore = dto.NotificationDaysBefore;
+            subscription.NotificationMessage = dto.NotificationMessage;
 
             await _subscriptionRepository.UpdateAsync(subscription);
             return true;
