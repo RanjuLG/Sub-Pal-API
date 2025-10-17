@@ -55,9 +55,10 @@ namespace Sub_Pal_API.Services.Implementations
                         : s.Price)
                 );
 
-            // Get upcoming renewals (next 30 days)
+            // Get upcoming renewals (next 30 days) - using local time
+            var today = DateTime.Now.Date;
             var upcomingRenewals = subscriptions
-                .Where(s => s.NextRenewalDate <= DateTime.UtcNow.AddDays(30) && s.NextRenewalDate >= DateTime.UtcNow)
+                .Where(s => s.NextRenewalDate.Date <= today.AddDays(30) && s.NextRenewalDate.Date >= today)
                 .OrderBy(s => s.NextRenewalDate)
                 .ToList();
 
