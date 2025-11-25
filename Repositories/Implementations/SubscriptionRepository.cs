@@ -21,6 +21,13 @@ namespace Sub_Pal_API.Repositories.Implementations
                 .ToListAsync();
         }
 
+        public async Task<List<Subscription>> GetAllAsync()
+        {
+            return await _context.Subscriptions
+                .Include(s => s.User)
+                .ToListAsync();
+        }
+
         public async Task<Subscription?> GetByIdAsync(int id, int userId)
         {
             return await _context.Subscriptions
