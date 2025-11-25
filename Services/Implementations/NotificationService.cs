@@ -77,6 +77,21 @@ namespace Sub_Pal_API.Services.Implementations
             await _cacheService.RemoveAsync(GetNotificationsCacheKey(userId));
             await _cacheService.RemoveAsync(GetUnreadNotificationsCacheKey(userId));
         }
+        public async Task MarkAsUnreadAsync(int notificationId, int userId)
+        {
+            var notification = await _notificationRepository.GetByIdAsync(notificationId, userId);
+            if (notification == null)
+            {
+                throw new Exception("Notification not found");
+            }
+
+            notification.IsRead = false;
+            await _notificationRepository.UpdateAsync(notification);
+
+            // Invalidate notifications cache
+            await _cacheService.RemoveAsync(GetNotificationsCacheKey(userId));
+            await _cacheService.RemoveAsync(GetUnreadNotificationsCacheKey(userId));
+        }
 
         public async Task MarkAllAsReadAsync(int userId)
         {
