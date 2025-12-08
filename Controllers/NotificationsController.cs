@@ -76,6 +76,23 @@ namespace Sub_Pal_API.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        /// <summary>
+        /// Mark a specific notification as read
+        /// </summary>
+        [HttpPut("unread/{notificationId}")]
+        public async Task<IActionResult> MarkAsUnread(int notificationId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                await _notificationService.MarkAsReadAsync(notificationId, userId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
 
         /// <summary>
         /// Mark all user's notifications as read
